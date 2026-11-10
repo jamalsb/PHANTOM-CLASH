@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Phantom Clash — Ghost Duel</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,55 +12,67 @@
     min-height: 100vh;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    color: #fff; padding: 20px; overflow: hidden;
+    color: #fff; padding: 10px; overflow: hidden;
   }
   h1 {
-    font-size: 2.6rem; letter-spacing: 3px;
+    font-size: 2rem; letter-spacing: 2px;
     background: linear-gradient(90deg, #00f2fe, #4facfe, #a855f7);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     text-align: center; margin-bottom: 4px;
   }
-  .subtitle { color: #8a8aa8; margin-bottom: 14px; font-size: 0.9rem; letter-spacing: 1px; }
+  .subtitle { color: #8a8aa8; margin-bottom: 10px; font-size: 0.8rem; letter-spacing: 1px; text-align: center; }
   #gameWrapper {
     position: relative; border-radius: 14px; overflow: hidden;
     box-shadow: 0 0 60px rgba(79, 172, 254, 0.25);
-    background: #000; max-width: 100%;
+    background: #000; width: 100%; max-width: 800px;
+    aspect-ratio: 800 / 420; /* Keeps aspect ratio on mobile */
   }
-  canvas { display: block; border-radius: 14px; background: #0a0a1a; max-width: 100%; height: auto; }
+  canvas { display: block; border-radius: 14px; background: #0a0a1a; width: 100%; height: 100%; object-fit: contain; }
   #overlay {
     position: absolute; inset: 0;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     background: rgba(10, 10, 26, 0.94);
-    text-align: center; padding: 24px; border-radius: 14px;
+    text-align: center; padding: 15px; border-radius: 14px;
+    overflow-y: auto;
   }
   #overlay h2 {
-    font-size: 1.7rem; margin-bottom: 12px;
+    font-size: 1.4rem; margin-bottom: 8px;
     background: linear-gradient(90deg, #00f2fe, #a855f7);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
   }
-  #overlay p { color: #c0c0d8; margin-bottom: 6px; line-height: 1.7; font-size: 0.95rem; }
+  #overlay p { color: #c0c0d8; margin-bottom: 6px; line-height: 1.5; font-size: 0.85rem; }
   #overlay button {
-    margin-top: 18px; padding: 13px 34px;
-    font-size: 1rem; font-weight: bold; color: #fff;
+    margin-top: 12px; padding: 10px 30px;
+    font-size: 0.9rem; font-weight: bold; color: #fff;
     background: linear-gradient(90deg, #4facfe, #a855f7);
     border: none; border-radius: 30px; cursor: pointer;
-    letter-spacing: 2px; transition: transform 0.2s, box-shadow 0.2s;
+    letter-spacing: 1px; transition: transform 0.2s, box-shadow 0.2s;
   }
   #overlay button:hover { transform: scale(1.06); box-shadow: 0 0 25px rgba(168,85,247,0.6); }
   .hidden { display: none !important; }
   .hud {
-    display: flex; justify-content: space-between;
-    width: 800px; max-width: 100%; margin-top: 12px;
-    font-size: 0.9rem; color: #8a8aa8; padding: 0 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    width: 100%; max-width: 800px; margin-top: 12px;
+    font-size: 0.85rem; color: #8a8aa8; padding: 0 10px;
+    flex-wrap: wrap; gap: 5px;
   }
   .hud b { color: #4facfe; }
   .hud .ghostB { color: #e0e0ff; }
   .key {
-    display: inline-block; padding: 2px 9px;
+    display: inline-block; padding: 2px 6px;
     background: #2a2a4a; border-radius: 5px;
     font-family: monospace; color: #4facfe; font-weight: bold; margin: 0 2px;
+  }
+  
+  /* Mobile specific adjustments */
+  @media (max-width: 600px) {
+    h1 { font-size: 1.5rem; }
+    .subtitle { font-size: 0.7rem; }
+    #overlay p { font-size: 0.75rem; }
+    #overlay h2 { font-size: 1.2rem; }
+    .hud { font-size: 0.75rem; justify-content: center; gap: 15px; }
   }
 </style>
 </head>
@@ -90,7 +102,6 @@
 
 <script>
 (() => {
-  // ============ SETUP ============
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -103,7 +114,6 @@
   const hudGhost = document.getElementById('hudGhost');
   const hudBest  = document.getElementById('hudBest');
 
-  // ============ CONFIG ============
   const GROUND_Y       = H - 70;
   const GRAVITY        = 0.9;
   const JUMP_POWER     = -15;
@@ -114,9 +124,8 @@
   const RECORD_EVERY   = 2;
   const MAX_RECORD     = 30000;
 
-  // ============ STATE ============
-  let state = 'menu';   // menu | playing | ghostPlay | gameover
-  let mode  = 'record'; // record | race
+  let state = 'menu';
+  let mode  = 'record';
   let player, obstacles, particles;
   let groundOffset, speed, distance, frame;
   let spawnTimer = 90;
@@ -133,7 +142,6 @@
 
   function safeParse(s, fb) { try { return JSON.parse(s) || fb; } catch(e) { return fb; } }
 
-  // ============ AUDIO (WebAudio beeps, no files) ============
   let actx = null;
   function beep(freq, dur, type='sine', vol=0.07) {
     try {
@@ -147,7 +155,6 @@
     } catch(e) {}
   }
 
-  // ============ HELPERS ============
   function rr(x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -158,12 +165,8 @@
     ctx.closePath();
   }
 
-  // ============ RESET ============
   function resetGame() {
-    player = {
-      x: START_X, y: GROUND_Y - PLAYER_SIZE,
-      vy: 0, w: PLAYER_SIZE, h: PLAYER_SIZE, jumps: 0
-    };
+    player = { x: START_X, y: GROUND_Y - PLAYER_SIZE, vy: 0, w: PLAYER_SIZE, h: PLAYER_SIZE, jumps: 0 };
     obstacles = [];
     particles = [];
     groundOffset = 0;
@@ -175,7 +178,6 @@
     recordedFrames = [];
   }
 
-  // ============ INPUT ============
   function triggerJump() {
     if (state === 'playing' || state === 'ghostPlay') {
       if (player.jumps < 2) {
@@ -195,15 +197,25 @@
     }
   }
 
+  // Keyboard Controls (For PC)
   window.addEventListener('keydown', e => {
     if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
       e.preventDefault(); triggerJump();
     }
   });
-  canvas.addEventListener('pointerdown', e => { e.preventDefault(); triggerJump(); });
-  ovBtn.addEventListener('click', startAttempt);
 
-  // ============ START ============
+  // Touch & Mouse Controls (For Mobile)
+  const handleInteraction = (e) => {
+    e.preventDefault();
+    triggerJump();
+  };
+  
+  canvas.addEventListener('pointerdown', handleInteraction);
+  canvas.addEventListener('touchstart', handleInteraction, {passive: false});
+  
+  ovBtn.addEventListener('click', (e) => { e.preventDefault(); startAttempt(); });
+  ovBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startAttempt(); }, {passive: false});
+
   function startAttempt() {
     if (state === 'playing' || state === 'ghostPlay') return;
     resetGame();
@@ -223,14 +235,12 @@
     beep(700, 0.1, 'square');
   }
 
-  // ============ SPAWN ============
   function spawnObstacle() {
     const h = 28 + Math.random() * 42;
     const w = 24 + Math.random() * 28;
     obstacles.push({ x: W + 20, y: GROUND_Y - h, w, h });
   }
 
-  // ============ UPDATE ============
   function update() {
     if (state !== 'playing' && state !== 'ghostPlay') return;
 
@@ -239,7 +249,6 @@
     distance += speed;
     groundOffset = (groundOffset + speed) % 40;
 
-    // physics
     player.vy += GRAVITY;
     player.y += player.vy;
     if (player.y >= GROUND_Y - player.h) {
@@ -249,7 +258,6 @@
       player.jumps = 0;
     }
 
-    // obstacles
     spawnTimer--;
     if (spawnTimer <= 0) {
       spawnObstacle();
@@ -261,33 +269,25 @@
       if (o.x + o.w < 0) obstacles.splice(i, 1);
     }
 
-    // collision
     for (const o of obstacles) {
-      if (player.x < o.x + o.w &&
-          player.x + player.w > o.x &&
-          player.y < o.y + o.h &&
-          player.y + player.h > o.y) {
+      if (player.x < o.x + o.w && player.x + player.w > o.x && player.y < o.y + o.h && player.y + player.h > o.y) {
         endGame();
         return;
       }
     }
 
-    // record
     if (state === 'playing' && recordedFrames.length < MAX_RECORD) {
       if (frame % RECORD_EVERY === 0) {
         recordedFrames.push({ y: Math.round(player.y), d: Math.round(distance) });
       }
     }
 
-    // ghost playback index
     if (state === 'ghostPlay' && savedGhostFrames.length > 0) {
-      while (ghostIndex < savedGhostFrames.length - 1 &&
-             savedGhostFrames[ghostIndex].d < distance) {
+      while (ghostIndex < savedGhostFrames.length - 1 && savedGhostFrames[ghostIndex].d < distance) {
         ghostIndex++;
       }
     }
 
-    // particles
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--;
@@ -297,7 +297,6 @@
     hudScore.textContent = Math.floor(distance / 10);
   }
 
-  // ============ END ============
   function endGame() {
     state = 'gameover';
     beep(140, 0.35, 'sawtooth', 0.09);
@@ -312,7 +311,6 @@
     }
 
     if (!lastRunWasGhost) {
-      // Save new ghost
       savedGhostFrames = recordedFrames.slice();
       savedGhostDist = finalDist;
       try {
@@ -325,10 +323,7 @@
         hudBest.textContent = bestDistance;
       }
       ovTitle.textContent = 'GHOST RECORDED';
-      ovText.innerHTML =
-        `You ran <b style="color:#4facfe">${finalDist}m</b>.<br>` +
-        `Your ghost is now chasing you next round.<br><br>` +
-        `Can you beat yourself?`;
+      ovText.innerHTML = `You ran <b style="color:#4facfe">${finalDist}m</b>.<br>Your ghost is now chasing you next round.<br><br>Can you beat yourself?`;
       ovBtn.textContent = 'RACE YOUR GHOST';
     } else {
       const g = savedGhostDist;
@@ -346,11 +341,9 @@
       ovText.innerHTML = msg + '<br><br>A new recording will start.';
       ovBtn.textContent = 'PLAY AGAIN';
     }
-
     overlay.classList.remove('hidden');
   }
 
-  // ============ RENDER ============
   function drawBackground() {
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, '#0a0a1a');
@@ -468,7 +461,6 @@
     drawParticles();
   }
 
-  // ============ LOOP ============
   function loop() {
     update();
     render();
@@ -480,4 +472,4 @@
 })();
 </script>
 </body>
-  </html>
+               </html>
